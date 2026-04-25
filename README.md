@@ -13,15 +13,6 @@ linkedin_jobs_project/
 │   ├── processed/            # Cleaned, merged dataset
 │   └── warehouse/            # SQLite database (etl_warehouse.db)
 │
-├── src/
-│   ├── preprocessing/        # Step 5: cleaning, encoding, feature engineering
-│   ├── mining/               # Step 8: classification, clustering, assoc. rules, regression
-│   ├── visualization/        # Step 7: all charts and plots
-│   └── evaluation/           # Step 9: metrics, reports
-│
-├── notebooks/
-│   └── full_pipeline.ipynb   # End-to-end walkthrough notebook
-│
 ├── outputs/
 │   └── figures/              # Saved plots
 │
