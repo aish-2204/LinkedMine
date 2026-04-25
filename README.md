@@ -31,9 +31,7 @@ linkedin_jobs_project/
 
 ## Dataset Download
 1. Go to: https://www.kaggle.com/datasets/arshkon/linkedin-job-postings
-2. Download and unzip into `data/raw/`
-3. You should have: `job_postings.csv`, `companies/companies.csv`, `job_skills.csv`,
-   `job_industries.csv`, `salaries.csv`, `benefits.csv`
+2. Download and unzip into `data/raw/` - With internal sub folders
 
 ## Run Order
 ```bash
