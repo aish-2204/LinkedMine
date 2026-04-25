@@ -218,7 +218,19 @@ __marimo__/
 .streamlit/secrets.toml
 
 # --- Project: LinkedIn Jobs ---
-data/raw/
-data/processed/
-data/warehouse/*.db
-outputs/
+# Ignore file contents but keep folder structure via .gitkeep
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+
+data/warehouse/*
+!data/warehouse/.gitkeep
+!data/warehouse/ARCHITECTURE.md
+
+outputs/*
+!outputs/.gitkeep
+!outputs/figures/
+outputs/figures/*
+!outputs/figures/.gitkeep
