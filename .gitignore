@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Project: LinkedIn Jobs ---
+data/raw/
+data/processed/
+data/warehouse/*.db
+outputs/
