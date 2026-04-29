@@ -217,6 +217,10 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
+# macOS
+.DS_Store
+**/.DS_Store
+
 # --- Project: LinkedIn Jobs ---
 # Ignore file contents but keep folder structure via .gitkeep
 data/raw/*

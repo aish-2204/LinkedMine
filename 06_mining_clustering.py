@@ -12,8 +12,10 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import seaborn as sns
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import MultiLabelBinarizer, MinMaxScaler
 import warnings
@@ -35,6 +37,9 @@ CATEGORY_LABELS = {
     'STRA': 'Strategy',        'GENB': 'General Business',
 }
 
+# Distinct colors, one per cluster (supports up to 5)
+CLUSTER_COLORS = ["#0A66C2", "#2a9d8f", "#e63946", "#f4a261", "#8338ec"]
+
 
 def load():
     skills_path = os.path.join(PROCESSED, "job_skills_clean.csv")
@@ -48,11 +53,6 @@ def load():
 
 
 def build_skill_matrix(jobs, skills):
-    """Build feature matrix: job-category binary + scaled numeric attributes.
-
-    Returns X, job_ids, skill_names, n_skill_cols
-    where the first n_skill_cols columns are the binary skill features.
-    """
     if skills is None:
         print("  No skills file — using numeric features for clustering")
         return None, None, None, 0
@@ -74,7 +74,6 @@ def build_skill_matrix(jobs, skills):
     job_ids  = job_skills["job_id"].values
     n_skills = X_skill.shape[1]
 
-    # Supplement with scaled numeric features for better cluster separation
     num_cols = [c for c in ["experience_encoded", "company_size_encoded", "is_remote"]
                 if c in jobs.columns]
     if num_cols and "job_id" in jobs.columns:
@@ -92,9 +91,9 @@ def build_skill_matrix(jobs, skills):
     return X_skill, job_ids, top_skills, n_skills
 
 
-def find_optimal_k(X, k_range=range(2, 11)):
-    """Find best K by silhouette score — no plot generated."""
-    print("  Evaluating K (2–10) via silhouette score...")
+def find_optimal_k(X, k_range=range(2, 6)):
+    """Find best K in 2–5 — capped so clusters stay distinct and interpretable."""
+    print("  Evaluating K (2–5) via silhouette score...")
     sample_X = X if len(X) <= 5000 else X[np.random.choice(len(X), 5000, replace=False)]
 
     best_k, best_sil = 3, -1
@@ -118,56 +117,90 @@ def run_kmeans(X, k):
     return labels, km, sil
 
 
-def plot_cluster_profiles(X, labels, top_skills, k, n_skill_cols):
-    """Heatmap: clusters × top job categories.
+def _auto_name(center, skill_names, threshold=0.12, max_terms=2):
+    """Generate a cluster name from its top dominant categories."""
+    top_idx = np.argsort(center)[::-1]
+    sig = [i for i in top_idx if center[i] >= threshold][:max_terms]
+    if not sig:
+        sig = top_idx[:1]
+    return " & ".join(CATEGORY_LABELS.get(skill_names[i], skill_names[i]) for i in sig)
 
-    Each cell shows the fraction of jobs in that cluster that belong to
-    a given category — immediately shows what each cluster is about.
-    """
-    # Use only the skill binary columns (not the appended numeric features)
-    X_skill = X[:, :n_skill_cols]
+
+def plot_cluster_scatter(X, labels, top_skills, k, n_skill_cols):
+    """PCA scatter: each dot = one job posting, colour = cluster, ★ = centroid."""
+    X_skill     = X[:, :n_skill_cols]
     skill_names = top_skills[:n_skill_cols]
 
-    # Pick top 15 categories by overall frequency
-    overall_freq = X_skill.mean(axis=0)
-    top_idx      = np.argsort(overall_freq)[::-1][:15]
-    col_names    = [CATEGORY_LABELS.get(skill_names[i], skill_names[i]) for i in top_idx]
-
-    # Build cluster × category frequency matrix
-    sizes   = []
-    profile = np.zeros((k, len(top_idx)))
+    # Auto-name every cluster
+    names = []
+    sizes = []
     for c in range(k):
         mask = labels == c
-        sizes.append(mask.sum())
-        if mask.sum() > 0:
-            profile[c] = X_skill[mask][:, top_idx].mean(axis=0)
+        sizes.append(int(mask.sum()))
+        center = X_skill[mask].mean(axis=0) if mask.sum() > 0 else np.zeros(len(skill_names))
+        names.append(_auto_name(center, skill_names))
 
-    row_labels = [f"Cluster {c+1}  (n={sizes[c]:,})" for c in range(k)]
+    # PCA on the full feature matrix (skill binary + numeric supplement)
+    pca  = PCA(n_components=2, random_state=42)
+    X_2d = pca.fit_transform(X)
+    var  = pca.explained_variance_ratio_
 
-    fig, ax = plt.subplots(figsize=(14, max(5, k * 0.65 + 1)))
-    sns.heatmap(
-        profile,
-        xticklabels=col_names,
-        yticklabels=row_labels,
-        annot=True, fmt=".2f",
-        cmap="Blues",
-        linewidths=0.4,
-        ax=ax,
-        annot_kws={"size": 8},
-        vmin=0, vmax=profile.max()
-    )
+    # Project K-Means centroids into the same PCA space
+    # Refit KMeans to get .cluster_centers_, then transform
+    km_refit = KMeans(n_clusters=k, random_state=42, n_init=10)
+    km_refit.fit(X)
+    centroids_2d = pca.transform(km_refit.cluster_centers_)
+
+    # Sample points to keep the plot readable (avoid solid blobs)
+    n_sample = min(10_000, len(X_2d))
+    rng      = np.random.default_rng(42)
+    idx      = rng.choice(len(X_2d), n_sample, replace=False)
+
+    colors = CLUSTER_COLORS[:k]
+
+    fig, ax = plt.subplots(figsize=(11, 7))
+
+    # ── Draw each cluster's points ────────────────────────────────────────────
+    for c in range(k):
+        mask_s = labels[idx] == c
+        ax.scatter(
+            X_2d[idx][mask_s, 0],
+            X_2d[idx][mask_s, 1],
+            c=colors[c], alpha=0.30, s=14,
+            edgecolors="none",
+            label=f"{names[c]}  (n={sizes[c]:,})"
+        )
+
+    # ── Draw centroids ────────────────────────────────────────────────────────
+    for c in range(k):
+        cx, cy = centroids_2d[c]
+        ax.scatter(cx, cy,
+                   c=colors[c], s=350, marker="*",
+                   edgecolors="white", linewidths=1.5, zorder=6)
+        ax.annotate(
+            names[c],
+            xy=(cx, cy),
+            xytext=(12, 10), textcoords="offset points",
+            fontsize=9, fontweight="bold", color=colors[c],
+            bbox=dict(boxstyle="round,pad=0.3",
+                      facecolor="white", edgecolor=colors[c],
+                      alpha=0.88, linewidth=1.2),
+            zorder=7
+        )
+
+    ax.set_xlabel(f"PC1  ({var[0]*100:.1f}% of variance)", fontsize=11)
+    ax.set_ylabel(f"PC2  ({var[1]*100:.1f}% of variance)", fontsize=11)
     ax.set_title(
-        "Job role cluster profiles\n"
-        "Each cell = fraction of jobs in that cluster belonging to the category  "
-        "(darker = more dominant)",
-        fontsize=11, fontweight="bold", pad=14
+        "Job Role Clusters  —  each dot is one job posting\n"
+        "★ = cluster centroid  |  colour = role family",
+        fontsize=12, fontweight="bold", pad=12
     )
-    ax.set_xlabel("Job category", fontsize=10)
-    ax.set_ylabel("Cluster", fontsize=10)
-    ax.tick_params(axis="x", rotation=40)
-    ax.tick_params(axis="y", rotation=0)
-    plt.tight_layout()
+    ax.legend(fontsize=8.5, loc="upper right",
+              framealpha=0.92, edgecolor="#ddd",
+              title="Cluster (role family)", title_fontsize=8)
+    ax.spines[["top", "right"]].set_visible(False)
 
+    plt.tight_layout()
     path = os.path.join(FIGURES_DIR, "12_cluster_profiles.png")
     plt.savefig(path, dpi=150, bbox_inches="tight")
     plt.close()
@@ -180,14 +213,17 @@ def describe_clusters(X, labels, top_skills, k, n_skill_cols, top_n=5):
     skill_names = top_skills[:n_skill_cols]
 
     print(f"\n  Cluster role families (top {top_n} categories):")
-    print("  " + "-" * 60)
+    print("  " + "-" * 70)
     for c in range(k):
         mask    = labels == c
         center  = X_skill[mask].mean(axis=0)
         top_idx = np.argsort(center)[::-1][:top_n]
-        cats    = [CATEGORY_LABELS.get(skill_names[i], skill_names[i]) for i in top_idx]
+        cats    = [f"{CATEGORY_LABELS.get(skill_names[i], skill_names[i])} ({center[i]:.0%})"
+                   for i in top_idx]
+        name    = _auto_name(center, skill_names)
         pct     = mask.sum() / len(labels) * 100
-        print(f"  Cluster {c+1:>2} ({pct:4.1f}%  n={mask.sum():,}):  {', '.join(cats)}")
+        print(f"  [{name}]  {pct:.1f}%  n={mask.sum():,}")
+        print(f"    → {', '.join(cats)}")
 
 
 if __name__ == "__main__":
@@ -206,10 +242,10 @@ if __name__ == "__main__":
         n_skill_cols = len(num_cols)
         print(f"  Numeric feature matrix: {X.shape}")
 
-    best_k         = find_optimal_k(X)
+    best_k          = find_optimal_k(X)
     labels, km, sil = run_kmeans(X, best_k)
 
-    plot_cluster_profiles(X, labels, top_skills, best_k, n_skill_cols)
+    plot_cluster_scatter(X, labels, top_skills, best_k, n_skill_cols)
     describe_clusters(X, labels, top_skills, best_k, n_skill_cols)
 
     print(f"\n  Final silhouette score: {sil:.4f}")
