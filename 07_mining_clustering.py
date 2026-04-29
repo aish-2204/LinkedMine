@@ -1,5 +1,5 @@
 # =============================================================================
-# STEP 6 — DATA MINING: CLUSTERING
+# STEP 7 — DATA MINING: CLUSTERING
 # Rubric: 8.2 Clustering
 # Task: Group job postings into natural role families based on skill profiles
 # Method: K-Means on job-category binary matrix + numeric job attributes
@@ -228,7 +228,7 @@ def describe_clusters(X, labels, top_skills, k, n_skill_cols, top_n=5):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("STEP 6: CLUSTERING — Discover job role families")
+    print("STEP 7: CLUSTERING — Discover job role families")
     print("=" * 60)
 
     jobs, skills = load()
@@ -249,4 +249,4 @@ if __name__ == "__main__":
     describe_clusters(X, labels, top_skills, best_k, n_skill_cols)
 
     print(f"\n  Final silhouette score: {sil:.4f}")
-    print("\nStep 6 complete. Proceed to: python 07_mining_association_rules.py")
+    print("\nStep 7 complete. Proceed to: python 08_mining_association_rules.py")

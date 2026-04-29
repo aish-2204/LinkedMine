@@ -255,4 +255,4 @@ if __name__ == "__main__":
     print(f"  salary_clean non-null : {df['salary_clean'].notna().sum():,}")
     print(f"  high_demand non-null  : {df['high_demand'].notna().sum():,}")
     print(f"Saved → {out_path}")
-    print("\nStep 3 complete. Proceed to: python 04_visualization.py")
+    print("\nStep 3 complete. Proceed to: python 04_eda.py")

@@ -1,5 +1,5 @@
 # =============================================================================
-# STEP 9 — MODEL EVALUATION (Consolidated Report)
+# STEP 10 — MODEL EVALUATION (Consolidated Report)
 # Rubric: 9. Model Evaluation
 # Covers: Accuracy, F1, ROC-AUC (classification)
 #         Silhouette (clustering)
@@ -307,7 +307,7 @@ def plot_summary_scorecard(clf, clu, arm, reg):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("STEP 9: CONSOLIDATED MODEL EVALUATION REPORT")
+    print("STEP 10: CONSOLIDATED MODEL EVALUATION REPORT")
     print("=" * 60)
 
     clf = evaluate_classification()

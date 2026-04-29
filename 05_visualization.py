@@ -1,5 +1,5 @@
 # =============================================================================
-# STEP 4 — DATA VISUALIZATION
+# STEP 5 — DATA VISUALIZATION
 # Rubric: Visualization — bar chart, line chart, scatter plot,
 #         heatmap, boxplot (all 5 types satisfied below)
 # =============================================================================
@@ -319,7 +319,7 @@ def plot_remote_breakdown(df):
 # =============================================================================
 if __name__ == "__main__":
     print("=" * 60)
-    print("STEP 4: DATA VISUALIZATION")
+    print("STEP 5: DATA VISUALIZATION")
     print("=" * 60)
 
     df = load()
@@ -334,4 +334,4 @@ if __name__ == "__main__":
     plot_remote_breakdown(df)   # 08 — BAR
 
     print(f"\nAll figures saved to: {FIGURES_DIR}/")
-    print("Step 4 complete. Proceed to: python 05_mining_classification.py")
+    print("Step 5 complete. Proceed to: python 06_mining_classification.py")

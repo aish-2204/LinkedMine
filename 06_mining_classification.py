@@ -1,5 +1,5 @@
 # =============================================================================
-# STEP 5 — DATA MINING: CLASSIFICATION
+# STEP 6 — DATA MINING: CLASSIFICATION
 # Rubric: 8.1 Classification
 # Task: Predict whether a job is high-demand (applies >= 75th percentile)
 # Models: Logistic Regression, Random Forest Classifier, Decision Tree
@@ -230,7 +230,7 @@ def plot_roc_curve(results, y_test):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("STEP 5: CLASSIFICATION — Predict High-Demand Job Postings")
+    print("STEP 6: CLASSIFICATION — Predict High-Demand Job Postings")
     print("=" * 60)
 
     df = load()
@@ -242,4 +242,4 @@ if __name__ == "__main__":
         plot_feature_importance(rf_model, feature_cols)
         plot_roc_curve(results, y_test)
 
-    print("\nStep 5 complete. Proceed to: python 06_mining_clustering.py")
+    print("\nStep 6 complete. Proceed to: python 07_mining_clustering.py")

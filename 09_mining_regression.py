@@ -1,5 +1,5 @@
 # =============================================================================
-# STEP 8 — DATA MINING: REGRESSION
+# STEP 9 — DATA MINING: REGRESSION
 # Rubric: 8.4 Regression
 # Task: Predict salary_clean (real salary from normalized_salary, $20K–$500K)
 # Models: Linear Regression, Ridge, Random Forest, Gradient Boosting
@@ -262,7 +262,7 @@ def plot_model_comparison(results, y_test):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("STEP 8: REGRESSION — Predict Salary")
+    print("STEP 9: REGRESSION — Predict Salary")
     print("=" * 60)
 
     df = load()
@@ -279,4 +279,4 @@ if __name__ == "__main__":
         plot_feature_importance_reg(rf_result["model"], feature_cols)
         plot_model_comparison(results, y_test)
 
-    print("\nStep 8 complete. Proceed to: python 09_model_evaluation.py")
+    print("\nStep 9 complete. Proceed to: python 10_model_evaluation.py")
