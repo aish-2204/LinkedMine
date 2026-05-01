@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.preprocessing import MinMaxScaler
 import joblib
 import warnings
 warnings.filterwarnings("ignore")
@@ -75,30 +76,43 @@ def prepare_features(df):
     for col in X.columns:
         X[col] = pd.to_numeric(X[col], errors="coerce").fillna(0)
 
-    y = df_model[target]
+    y_raw = df_model[target]
+
+    # Normalize salary to [0, 1] so RMSE is on a 0–1 scale (< 1)
+    scaler = MinMaxScaler()
+    y = pd.Series(
+        scaler.fit_transform(y_raw.values.reshape(-1, 1)).flatten(),
+        index=y_raw.index
+    )
 
     print(f"  Rows with real salary: {len(X):,}")
-    print(f"  Salary range: ${y.min():,.0f} – ${y.max():,.0f}  (median: ${y.median():,.0f})")
+    print(f"  Salary range (raw): ${y_raw.min():,.0f} – ${y_raw.max():,.0f}  "
+          f"(median: ${y_raw.median():,.0f})")
+    print(f"  Salary range (normalized): {y.min():.3f} – {y.max():.3f}")
     print(f"  Features: {feature_cols}")
-    return X, y, feature_cols
+    return X, y, feature_cols, scaler, y_raw
 
 
-def train_and_evaluate(X, y, feature_cols):
+def train_and_evaluate(X, y, feature_cols, scaler, y_raw):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
+    # Keep raw salary aligned to test set for dollar-equivalent reporting
+    _, _, y_raw_train, y_raw_test = train_test_split(
+        X, y_raw, test_size=0.2, random_state=42
+    )
 
     models = {
-        "Linear Regression":       LinearRegression(),
-        "Ridge Regression":        Ridge(alpha=1.0),
-        "Random Forest":           RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
-        "Gradient Boosting":       GradientBoostingRegressor(n_estimators=100, max_depth=4, random_state=42),
+        "Linear Regression":   LinearRegression(),
+        "Ridge Regression":    Ridge(alpha=1.0),
+        "Random Forest":       RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42),
+        "Gradient Boosting":   GradientBoostingRegressor(n_estimators=100, max_depth=4, random_state=42),
     }
 
     results = {}
-    print("\n  Model Performance Summary")
-    print(f"  {'Model':<25} {'RMSE':>12} {'MAE':>12} {'R²':>8}")
-    print("  " + "-" * 60)
+    print("\n  Model Performance Summary  (salary normalized to [0,1])")
+    print(f"  {'Model':<25} {'RMSE (0–1)':>12} {'MAE (0–1)':>12} {'R²':>8}  {'RMSE ($)':>12}")
+    print("  " + "-" * 75)
 
     for name, model in models.items():
         model.fit(X_train, y_train)
@@ -108,11 +122,17 @@ def train_and_evaluate(X, y, feature_cols):
         mae  = mean_absolute_error(y_test, y_pred)
         r2   = r2_score(y_test, y_pred)
 
-        results[name] = {"model": model, "y_pred": y_pred, "rmse": rmse, "mae": mae, "r2": r2}
-        print(f"  {name:<25} ${rmse:>11,.0f} ${mae:>11,.0f} {r2:>8.3f}")
+        # Convert normalized RMSE back to dollars for interpretability
+        y_pred_dollars = scaler.inverse_transform(y_pred.reshape(-1, 1)).flatten()
+        rmse_dollars   = np.sqrt(mean_squared_error(y_raw_test, y_pred_dollars))
+
+        results[name] = {"model": model, "y_pred": y_pred, "rmse": rmse,
+                         "mae": mae, "r2": r2, "rmse_dollars": rmse_dollars}
+        print(f"  {name:<25} {rmse:>12.4f} {mae:>12.4f} {r2:>8.3f}  ${rmse_dollars:>11,.0f}")
 
     best_name = max(results, key=lambda k: results[k]["r2"])
-    print(f"\n  Best model: {best_name}  (R² = {results[best_name]['r2']:.3f})")
+    print(f"\n  Best model: {best_name}  (R² = {results[best_name]['r2']:.3f}  "
+          f"RMSE = {results[best_name]['rmse']:.4f})")
     joblib.dump(results[best_name]["model"], os.path.join(MODELS_DIR, "regressor_best.pkl"))
 
     return results, best_name, X_test, y_test
@@ -242,15 +262,14 @@ def plot_model_comparison(results, y_test):
     bars2 = ax2.bar(range(len(all_names)), all_rmses, color=rmse_colors, edgecolor="none", width=0.55)
     ax2.set_xticks(range(len(all_names)))
     ax2.set_xticklabels(all_names, rotation=15, ha="right", fontsize=9)
-    ax2.set_ylabel("RMSE — average prediction error", fontsize=11)
-    ax2.set_title("RMSE  — average dollar error per salary prediction\n"
-                  "Lower is better  |  grey bar = baseline to beat",
+    ax2.set_ylabel("RMSE  (normalized 0–1 scale)", fontsize=11)
+    ax2.set_title("RMSE  — lower is better  (salary normalized to [0,1])\n"
+                  "Grey bar = naive baseline (predict mean salary)",
                   fontsize=10, fontweight="bold")
-    ax2.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"${x/1000:.0f}K"))
     ax2.spines[["top", "right"]].set_visible(False)
     for bar, v in zip(bars2, all_rmses):
         ax2.text(bar.get_x() + bar.get_width() / 2, v + naive_rmse * 0.01,
-                 f"${v/1000:.0f}K", ha="center", va="bottom", fontsize=9, color="#333")
+                 f"{v:.4f}", ha="center", va="bottom", fontsize=9, color="#333")
 
     plt.suptitle("Salary prediction — model comparison", fontsize=12, fontweight="bold", y=1.01)
     plt.tight_layout()
@@ -266,10 +285,10 @@ if __name__ == "__main__":
     print("=" * 60)
 
     df = load()
-    X, y, feature_cols = prepare_features(df)
+    X, y, feature_cols, scaler, y_raw = prepare_features(df)
 
     if X is not None:
-        results, best_name, X_test, y_test = train_and_evaluate(X, y, feature_cols)
+        results, best_name, X_test, y_test = train_and_evaluate(X, y, feature_cols, scaler, y_raw)
         best_pred = results[best_name]["y_pred"]
         best_r2   = results[best_name]["r2"]
         rf_result = results.get("Random Forest", results[best_name])
